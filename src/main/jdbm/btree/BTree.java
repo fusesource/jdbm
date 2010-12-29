@@ -123,6 +123,10 @@ public class BTree<K,V>
 		this.valueSerializer = valueSerializer;
 	}
 
+    public Comparator<K> getComparator() {
+        return _comparator;
+    }
+
 	/**
      * Height of the B+Tree.  This is the number of BPages you have to traverse
      * to get to a leaf BPage, starting from the root.
