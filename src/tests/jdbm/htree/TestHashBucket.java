@@ -43,7 +43,10 @@ public class TestHashBucket extends TestCaseWithTestFile {
 
         Properties props = new Properties();
         RecordManager recman = RecordManagerFactory.createRecordManager( newTestFile(), props );
-        HashBucket bucket = new HashBucket(0);
+
+        HTree tree = new HTree();
+
+        HashBucket bucket = new HashBucket(tree, 0);
 
         // add
         bucket.addElement("key", "value");

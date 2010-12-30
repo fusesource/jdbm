@@ -21,6 +21,9 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 
+import jdbm.Serializer;
+import jdbm.SerializerInput;
+import jdbm.SerializerOutput;
 import jdbm.helper.LongPacker;
 import jdbm.helper.Serialization;
 
@@ -82,8 +85,8 @@ final class HashBucket<K,V>
     /**
      * Public constructor for serialization.
      */
-    public HashBucket() {
-        // empty
+    public HashBucket(HTree<K,V> tree) {
+        super(tree);
     }
 
 
@@ -91,8 +94,9 @@ final class HashBucket<K,V>
      * Construct a bucket with a given depth level.  Depth level is the
      * number of <code>HashDirectory</code> above this bucket.
      */
-    public HashBucket( int level )
+    public HashBucket(HTree<K,V> tree, int level )
     {
+        super(tree);
         if ( level > HashDirectory.MAX_DEPTH+1 ) {
             throw new IllegalArgumentException(
                             "Cannot create bucket with depth > MAX_DEPTH+1. "
@@ -227,16 +231,36 @@ final class HashBucket<K,V>
     /**
      * Implement Externalizable interface.
      */
-    public void writeExternal( DataOutputStream out )
+    public void writeExternal( SerializerOutput out )
         throws IOException
     {
-    	LongPacker.packInt(out,_depth); 
+        out.writePackedInt(_depth);
 
-        Serialization.writeObject(out, _keys);
+        Serializer<K> keySerializer = tree.getKeySerializer();
+        if( keySerializer ==null ) {
+            Serialization.writeObject(out, _keys);
+        } else {
+            out.writePackedInt(_keys.size());
+            for(int i = 0;i<_keys.size();i++){
+                K key = _keys.get(i);
+                if( key != null ) {
+                    out.writeBoolean(true);
+                    keySerializer.serialize(out, key);
+                } else {
+                    out.writeBoolean(false);
+                }
+            }
+        }
+
+        Serializer<V> valueSerializer = tree.getValueSerializer();
         for(int i = 0;i<_keys.size();i++){
         	if(_keys.get(i) == null)
         		continue;
-        	Serialization.writeObject(out, _values.get(i));	
+            if( valueSerializer==null ) {
+            	Serialization.writeObject(out, _values.get(i));
+            } else {
+                valueSerializer.serialize(out, _values.get(i));
+            }
         }
         
     }
@@ -245,17 +269,38 @@ final class HashBucket<K,V>
     /**
      * Implement Externalizable interface.
      */
-    public void readExternal(DataInputStream in)
+    public void readExternal(SerializerInput in)
     throws IOException, ClassNotFoundException {
-        _depth = LongPacker.unpackInt(in);
+        _depth = in.readPackedInt();
 
-        _keys = (ArrayList<K>) Serialization.readObject(in);
+        Serializer<K> keySerializer = tree.getKeySerializer();
+        if( keySerializer ==null ) {
+            _keys = (ArrayList<K>) Serialization.readObject(in);
+        } else {
+            int size = in.readPackedInt();
+            _keys = new ArrayList<K>(size);
+            for( int i=0; i<size; i++) {
+                if( in.readBoolean() ) {
+                    _keys.add(keySerializer.deserialize(in));
+                } else {
+                    _keys.add(null);
+                }
+            }
+        }
+
+        Serializer<V> valueSerializer = tree.getValueSerializer();
         _values = new ArrayList<V>(_keys.size());
         for(int i = 0;i<_keys.size();i++){
         	if(_keys.get(i) == null)
         		_values.add(null);
-        	else
-        		_values.add((V) Serialization.readObject(in));
+        	else {
+                if( valueSerializer==null ) {
+                    _values.add((V) Serialization.readObject(in));
+                } else {
+                    _values.add(valueSerializer.deserialize(in));
+                }
+            }
+
         }
 
     }
