@@ -21,7 +21,6 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
-import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -759,7 +758,7 @@ public final class Serialization
         throws ClassNotFoundException, IOException
     {
 
-        ObjectInputStream ois = new ObjectInputStream( buf );
+        ClassLoadingAwareObjectInputStream ois = new ClassLoadingAwareObjectInputStream( buf );
         Object ret =  ois.readObject();
         if(buf.readByte()!=END_OF_NORMAL_SERIALIZATION)
         	throw new IOException("Wrong magic after serialization, maybe is Externalizable and wrong amount of bytes was read?");
